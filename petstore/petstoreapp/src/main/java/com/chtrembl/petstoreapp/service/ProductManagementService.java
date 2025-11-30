@@ -37,21 +37,6 @@ public class ProductManagementService {
 
     public Collection<Product> getProductsByCategory(String category, List<Tag> tags)  {
 
-
-        try{
-            // This line throws the exception
-            throw new Exception("Cannot move further");
-        }catch(Exception e){
-
-            log.error("An expected test exception occurred: {}", e.getMessage(), e);
-
-
-            petStoreTelemetryClient.trackException(e);
-
-
-            petStoreTelemetryClient.trackTrace("Caught test exception in getProductsByCategory", SeverityLevel.Warning);
-
-        }
         List<Product> products;
 
         MDC.put(OPERATION, "getProducts");

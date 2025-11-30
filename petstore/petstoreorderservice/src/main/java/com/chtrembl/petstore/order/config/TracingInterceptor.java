@@ -115,6 +115,8 @@ public class TracingInterceptor implements ClientHttpRequestInterceptor {
             return "pet-service";
         } else if (url.contains("petstoreorderservice")) {
             return "order-service";
+        }  else if (url.contains("OrderItemsReserver")) {
+            return "order-item-reserver-service";
         }
         return "unknown-service";
     }

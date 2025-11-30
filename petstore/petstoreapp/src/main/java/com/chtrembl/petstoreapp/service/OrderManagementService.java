@@ -1,10 +1,9 @@
 package com.chtrembl.petstoreapp.service;
 
+import com.chtrembl.petstoreapp.client.OrderItemReserverServiceClient;
 import com.chtrembl.petstoreapp.client.OrderServiceClient;
 import com.chtrembl.petstoreapp.exception.OrderServiceException;
-import com.chtrembl.petstoreapp.model.Order;
-import com.chtrembl.petstoreapp.model.Product;
-import com.chtrembl.petstoreapp.model.User;
+import com.chtrembl.petstoreapp.model.*;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static com.chtrembl.petstoreapp.config.Constants.COMPLETE_ORDER;
 import static com.chtrembl.petstoreapp.config.Constants.OPERATION;
@@ -30,6 +30,7 @@ public class OrderManagementService {
 
     private final User sessionUser;
     private final OrderServiceClient orderServiceClient;
+    private final OrderItemReserverServiceClient orderItemReserverServiceClient;
 
     public void updateOrder(long productId, int quantity, boolean completeOrder) {
         MDC.put(OPERATION, "updateOrder");
@@ -47,7 +48,16 @@ public class OrderManagementService {
             String orderJSON = serializeOrder(updatedOrder);
 
             Order resultOrder = orderServiceClient.createOrUpdateOrder(orderJSON);
+
+            ReservedOrder reservedOrder = buildReservedOrder(resultOrder);
+
             log.info("Successfully updated order: {}", resultOrder);
+
+            String reservedOrderJSON = serializeReservedOrder(reservedOrder);
+
+            String orderItemReserverResponse = orderItemReserverServiceClient.reserveOrderItems(reservedOrderJSON);
+
+            log.info("Reserved {}", orderItemReserverResponse);
 
         } catch (FeignException fe) {
             log.error("Unable to update order via Feign client: HTTP {} - {}", fe.status(), fe.getMessage(), fe);
@@ -60,6 +70,22 @@ public class OrderManagementService {
         } finally {
             cleanupMDC();
         }
+    }
+
+    private ReservedOrder buildReservedOrder(Order resultOrder) {
+        ReservedOrder reservedOrder = new ReservedOrder();
+        reservedOrder.setOrderId(UUID.randomUUID().toString());
+        reservedOrder.setSessionId(resultOrder.getId());//sessionId
+        List<ReservedProduct> reservedProducts = new ArrayList<>(resultOrder.getProducts().size());
+        for(Product product: resultOrder.getProducts()){
+            ReservedProduct reservedProduct = new ReservedProduct();
+            reservedProduct.setProductId(product.getId().toString());
+            reservedProduct.setName(product.getName());
+            reservedProduct.setQuantity(product.getQuantity());
+            reservedProducts.add(reservedProduct);
+        }
+        reservedOrder.setProducts(reservedProducts);
+        return reservedOrder;
     }
 
     public Order retrieveOrder(String orderId) {
@@ -122,6 +148,13 @@ public class OrderManagementService {
     }
 
     private String serializeOrder(Order order) throws Exception {
+        return new ObjectMapper()
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                .writeValueAsString(order);
+    }
+    private String serializeReservedOrder(ReservedOrder order) throws Exception {
         return new ObjectMapper()
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL)
                 .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
