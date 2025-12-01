@@ -131,7 +131,6 @@
             <version>${applicationinsights.version}</version>
         </dependency>
     </dependencies>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
