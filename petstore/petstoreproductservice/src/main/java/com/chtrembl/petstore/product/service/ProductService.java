@@ -1,10 +1,13 @@
 package com.chtrembl.petstore.product.service;
 
-import com.chtrembl.petstore.product.model.DataPreload;
-import com.chtrembl.petstore.product.model.Product;
+
+import com.chtrembl.petstore.product.entity.Product;
+import com.chtrembl.petstore.product.mapper.EntityToModelMapper;
+import com.chtrembl.petstore.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,30 +17,29 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ProductService {
 
-    private final DataPreload dataPreload;
+    private final ProductRepository productRepository;
+    private final EntityToModelMapper entityToModelMapper;
 
-    public List<Product> findProductsByStatus(List<String> status) {
+    @Transactional(readOnly = true)
+    public List<com.chtrembl.petstore.product.model.Product> findProductsByStatus(List<String> status) {
         log.info("Finding products with status: {}", status);
-
-        return dataPreload.getProducts().stream()
-                .filter(product -> status.contains(product.getStatus().getValue()))
-                .toList();
+        List<Product> products = productRepository.findByStatusIn(status);
+        return  entityToModelMapper.toModelProductList(products);
     }
-
-    public Optional<Product> findProductById(Long productId) {
+    @Transactional(readOnly = true)
+    public Optional<com.chtrembl.petstore.product.model.Product> findProductById(Long productId) {
         log.info("Finding product with id: {}", productId);
-
-        return dataPreload.getProducts().stream()
-                .filter(product -> product.getId().equals(productId))
-                .findFirst();
+        Optional<Product> productOptional = productRepository.findById(productId);
+        return Optional.of(entityToModelMapper.toModelProduct(productOptional.orElse(null)));
     }
-
-    public List<Product> getAllProducts() {
+    @Transactional(readOnly = true)
+    public List<com.chtrembl.petstore.product.model.Product> getAllProducts() {
         log.info("Getting all products");
-        return dataPreload.getProducts();
+        List<Product> products = productRepository.findAll();
+        return entityToModelMapper.toModelProductList(products);
     }
-
-    public int getProductCount() {
-        return dataPreload.getProducts().size();
+    @Transactional(readOnly = true)
+    public long getProductCount() {
+        return productRepository.count();
     }
 }

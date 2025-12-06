@@ -71,7 +71,7 @@ public class FeignConfig {
     public feign.Request.Options feignOptions() {
         return new feign.Request.Options(
                 5000, TimeUnit.MILLISECONDS,  // connect timeout
-                5000, TimeUnit.MILLISECONDS,  // read timeout
+                20000, TimeUnit.MILLISECONDS,  // read timeout
                 true  // follow redirects
         );
     }
