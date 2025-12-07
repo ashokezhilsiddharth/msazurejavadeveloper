@@ -1,14 +1,18 @@
 package com.chtrembl.petstore.order.service;
 
+import com.chtrembl.petstore.order.entity.OrderEntity;
 import com.chtrembl.petstore.order.exception.OrderNotFoundException;
+import com.chtrembl.petstore.order.mapper.OrderMapper;
 import com.chtrembl.petstore.order.model.Order;
 import com.chtrembl.petstore.order.model.Product;
+import com.chtrembl.petstore.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,13 +27,26 @@ public class OrderService {
     private static final String ORDERS = "orders";
     private final CacheManager cacheManager;
     private final ProductService productService;
+    private final OrderRepository orderRepository;
 
-    @Cacheable(ORDERS)
-    public Order createOrder(String orderId) {
-        log.info("Creating new order with id: {} and caching it", orderId);
+    @Cacheable(value=ORDERS, key = "#order.id")
+     public Order createOrder(Order order) {
+        log.info("Creating new order with id: {} and caching it", order.getId());
+        //logic to write to Azure Cosmos
+        Order orderModel = Order.builder()
+                .id(order.getId())
+                .products(order.getProducts())
+                .status(Order.Status.PLACED)
+                .complete(false)
+                .build();
+        OrderEntity orderEntity = orderRepository.save(OrderMapper.toEntity(orderModel));
+
+        log.info("Order Entity {} Saved!!", orderEntity);
+
+
         return Order.builder()
-                .id(orderId)
-                .products(new ArrayList<>())
+                .id(order.getId())
+                .products(order.getProducts())
                 .status(Order.Status.PLACED)
                 .complete(false)
                 .build();
@@ -72,27 +89,27 @@ public class OrderService {
      * Gets an existing order or creates a new one if it doesn't exist.
      * Used internally for order updates.
      */
-    public Order getOrCreateOrder(String orderId) {
-        log.info("Getting or creating order: {}", orderId);
+    public Order getOrCreateOrder(Order order) {
+        log.info("Getting or creating order: {}", order.getId());
 
         // Try to get from cache first
         Cache cache = cacheManager.getCache(ORDERS);
         if (cache != null) {
-            Cache.ValueWrapper wrapper = cache.get(orderId);
+            Cache.ValueWrapper wrapper = cache.get(order.getId());
             if (wrapper != null) {
                 Order cachedOrder = (Order) wrapper.get();
                 if (cachedOrder != null) {
-                    log.info("Found existing order for update: {}", orderId);
+                    log.info("Found existing order for update: {}", order.getId());
                     return cachedOrder;
                 }
             }
         }
 
         // Create new order if not found
-        log.info("Creating new order for update: {}", orderId);
-        Order newOrder = createOrder(orderId);
+        log.info("Creating new order for update: {}", order.getId());
+        Order newOrder = createOrder(order);
         if (cache != null) {
-            cache.put(orderId, newOrder);
+            cache.put(order.getId(), newOrder);
         }
 
         return newOrder;
@@ -108,7 +125,7 @@ public class OrderService {
         }
 
         // Use getOrCreateOrder for updates (allows creation)
-        Order cachedOrder = getOrCreateOrder(order.getId());
+        Order cachedOrder = getOrCreateOrder(order);
 
         // Update basic fields
         cachedOrder.setEmail(order.getEmail());

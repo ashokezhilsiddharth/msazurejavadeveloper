@@ -56,12 +56,15 @@ public class OrderController {
             @Valid @RequestBody Order order) {
 
         log.info("Incoming POST request to /petstoreorderservice/v2/store/order with order: {}", order);
+        // Enrich order with product details from product service
+        List<Product> availableProducts = productService.getAvailableProducts();
+        orderService.enrichOrderWithProductDetails(order, availableProducts);
 
         Order updatedOrder = orderService.updateOrder(order);
 
-        // Enrich order with product details from product service
+       /* // Enrich order with product details from product service
         List<Product> availableProducts = productService.getAvailableProducts();
-        orderService.enrichOrderWithProductDetails(updatedOrder, availableProducts);
+        orderService.enrichOrderWithProductDetails(updatedOrder, availableProducts);*/
         
         log.info("Successfully processed order: {}", updatedOrder.getId());
 
